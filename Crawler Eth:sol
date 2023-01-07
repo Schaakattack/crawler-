@@ -1,0 +1,325 @@
+import pandas as pd
+import json
+import requests
+
+#NEEDs api inputs in line 76ish for ETH 
+#NEEDS Api inputs in line (chat GPT was used to help format this doc)
+
+# Select network
+print("Select a blockchain:")
+print("1. Ethereum")
+print("2. Solana")
+
+# Read the user's selection
+selection = input("Enter the number of your selection: ")
+
+# type of token for the network (maybe can skip? (could also be usefulk later down tohave it pull different info for different token types))
+if selection == "1":
+    # Ethereum
+    network_name = "Ethereum"
+    origin_wallet_field = "from"
+    api_endpoint = "/eth/getBlockByNumber"
+elif selection == "2":
+    # Solana
+    network_name = "Solana"
+    origin_wallet_field = "mint"
+    api_endpoint = "/solana/block"
+else:
+    # Invalid selection
+    print("Invalid selection")
+    exit()
+
+# okay actually asking for the token type here cuz other steps needed
+print("Select the type of transactions to search for:")
+if network_name == "Ethereum":
+    print("1. ERC-20")
+    print("2. ERC-721")
+    print("3. ERC-1155")
+elif network_name == "Solana":
+    print("1. SPL token")
+    print("2. NFT")
+
+# Read the user's selection
+# might rename variable?
+transaction_type = input("Enter the number of your selection: ")
+
+# Set the transaction type variables based on the user's selection
+# might remove tokens types 
+if transaction_type == "1":
+    if network_name == "Ethereum":
+        transaction_type_name = "ERC-20"
+        contract_address_field = "to"
+    elif network_name == "Solana":
+        transaction_type_name = "SPL token"
+        contract_address_field = "program_id"
+elif transaction_type == "2":
+    if network_name == "Ethereum":
+        transaction_type_name = "ERC-721"
+        contract_address_field = "to"
+    elif network_name == "Solana":
+        transaction_type_name = "NFT"
+        contract_address_field = "program_id" 
+elif transaction_type == "3":
+    transaction_type_name = "ERC-1155"
+    contract_address_field = "to"
+else:
+    # Invalid selection
+    print("Invalid selection")
+    exit()
+
+# Prompt the user to enter the origin wallet or mint address they want to search for (mint address should be Solana parraell)
+origin_wallet = input(f"Enter the {network_name} origin wallet or mint address to search for: ")
+
+# Set the starting block number and the ending block number
+start_block = 0
+end_block = "latest"
+
+# Set the node URL NEEDS TO CHANGE BEFORE IT WILL WORK (think I night need another line for SOL api?)
+node_url = "https://mainnet.infura.io/v3/YOUR_PROJECT_ID"
+
+# Define a function to retrieve the transaction data for a given block
+def get_block_transactions(block_number):
+    params = [hex(block_number), True]
+    response = requests.post(node_url + api_endpoint, json={"jsonrpc": "2.0", "method": "eth_getBlockByNumber", "params": params, "id": 1})
+    block_data = response.json()
+    if network_name == "Ethereum":
+        return block_data["result"]["transactions"]
+    elif network_name == "Solana":
+        return block_data["result"]["transactions"]
+
+# Define a function to retrieve the current circulating supply and maximum supply for a given contract
+def get_supply(contract_address):
+    # Define the ABI for the ERC-20 contract
+    erc20_abi = [
+        {
+            "constant": True,
+            "inputs": [],
+            "name": "name",
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "string"
+                }
+            ],
+            "payable": False,
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "constant": True,
+            "inputs": [],
+            "name": "symbol",
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "string"
+                }
+            ],
+            "payable": False,
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "constant": True,
+            "inputs": [],
+            "name": "decimals",
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "uint8"
+                }
+            ],
+            "payable": False,
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "constant": True,
+            "inputs": [],
+            "name": "totalSupply",
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "uint256"
+                }
+            ],
+            "payable": False, 
+"stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "constant": True,
+            "inputs": [
+                {
+                    "name": "owner",
+                    "type": "address"
+                }
+            ],
+            "name": "balanceOf",
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "uint256"
+                }
+            ],
+            "payable": False,
+            "stateMutability": "view",
+            "type": "function"
+        }
+    ]
+    # Define the ABI for the ERC-721 contract
+    erc721_abi = [
+        {
+            "constant": True,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "uint256"
+                }
+            ],
+            "name": "ownerOf",
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "address"
+                }
+            ],
+            "payable": False,
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "constant": True,
+            "inputs": [],
+            "name": "totalSupply",
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "uint256"
+                }
+            ],
+            "payable": False,
+            "stateMutability": "view",
+            "type": "function"
+        }
+    ]
+    # Define the ABI for the ERC-1155 contract
+    erc1155_abi = [
+        {
+            "constant": True,
+            "inputs": [
+                {
+                    "name": "id",
+                    "type": "uint256"
+                }
+            ],
+            "name": "balanceOf",
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "uint256"
+                }
+            ],
+            "payable": False,
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "constant": True,
+            "inputs": [
+                {
+                    "name": "id",
+                    "type": "uint256"
+                }
+            ],
+            "name": "totalSupply",
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "uint256"
+                }
+            ],
+            "payable": False,
+            "stateMutability": "view",
+            "type": "function"
+        }
+    ]
+    # Set the ABI based on the transaction type
+    if transaction_type_name == "ERC-20":
+        abi = erc20_abi 
+schaakattack.ETH — 01/05/2023 5:31 PM
+elif transaction_type_name == "ERC-721":
+        abi = erc721_abi
+    elif transaction_type_name == "ERC-1155":
+        abi = erc1155_abi
+    else:
+        # Unsupported transaction type
+        return None
+    # Retrieve the contract instance Why does below look so different 
+    contract = web3.eth.contract(address=contract_address, abi=abi)
+    # Retrieve the current circulating supply
+    if transaction_type_name == "ERC-20":
+        circulating_supply = contract.functions.totalSupply().call()
+    elif transaction_type_name == "ERC-721":
+        circulating_supply = 0
+        for i in range(contract.functions.totalSupply().call()):
+            if contract.functions.ownerOf(i).call() != "0x0000000000000000000000000000000000000000":
+                circulating_supply += 1
+    elif transaction_type_name == "ERC-1155":
+        circulating_supply = contract.functions.balanceOf(id).call()
+    # Retrieve the maximum supply
+    if transaction_type_name == "ERC-20":
+        maximum_supply = contract.functions.totalSupply().call()
+    elif transaction_type_name == "ERC-721":
+        maximum_supply = contract.functions.totalSupply().call()
+    elif transaction_type_name == "ERC-1155":
+        maximum_supply = contract.functions.totalSupply(id).call()
+    # Return the current circulating supply and maximum supply
+    return (circulating_supply, maximum_supply)
+
+# Initialize a list to store the transactions
+transactions = []
+
+# Loop through the blocks
+for block_number in range(start_block, end_block):
+    # Retrieve the transaction data for the block
+    block_transactions = get_block_transactions(block_number)
+    # Loop through the transactions
+    for transaction in block_transactions:
+        # Check if the transaction involves the origin wallet or mint address
+        if transaction[origin_wallet_field] == origin_wallet or transaction[contract_address_field] == origin_wallet:
+            # Check if the transaction is of the correct type
+            if transaction_type_name == "ERC-20":
+                # Retrieve the contract address
+                contract_address = transaction[contract_address_field]
+                # Retrieve the current circulating supply and maximum supply for the contract
+                supply = get_supply(contract_address)
+                # Add the transaction to the list
+                transactions.append((block_number, transaction, supply))
+            elif transaction_type_name == "ERC-721": 
+# Check if the transaction is a transfer of an ERC-721 token
+                if "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef" in transaction["input"]:
+                    # Retrieve the contract address
+                    contract_address = transaction[contract_address_field]
+                    # Retrieve the current circulating supply and maximum supply for the contract
+                    supply = get_supply(contract_address)
+                    # Add the transaction to the list
+                    transactions.append((block_number, transaction, supply))
+            elif transaction_type_name == "ERC-1155":
+                # Check if the transaction is a transfer of an ERC-1155 token
+                if "0x115727d1f2fc5d70a8b65b70a1b5f5f9f9cec25f" in transaction["input"]:
+                    # Retrieve the contract address
+                    contract_address = transaction[contract_address_field]
+                    # Retrieve the current circulating supply and maximum supply for the contract
+                    supply = get_supply(contract_address)
+                    # Add the transaction to the list
+                    transactions.append((block_number, transaction, supply))
+
+# Print the transactions
+for transaction in transactions:
+    block_number, transaction_data, supply = transaction
+    print(f"Block: {block_number}")
+    print(f"Transaction: {transaction_data}")
+    print(f"Circulating supply: {supply[0]}")
+    print(f"Maximum supply: {supply[1]}")
+﻿
